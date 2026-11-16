@@ -1,0 +1,62 @@
+name: Deploy
+
+# Автообновление сайта: после успешной проверки (CI) на ветке main
+# GitHub заходит на сервер по SSH, забирает новую версию и пересобирает контейнеры.
+# Запустить вручную: вкладка Actions → Deploy → Run workflow.
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Никогда не собираем две версии одновременно — на небольшом сервере не хватит памяти
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to server
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Prepare SSH key
+        env:
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -T 15 -H "$SSH_HOST" >> ~/.ssh/known_hosts
+
+      - name: Pull, build and restart
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -o ServerAliveInterval=30 "$SSH_USER@$SSH_HOST" \
+            "DEPLOY_PATH='$DEPLOY_PATH' bash -s" <<'REMOTE'
+          set -euo pipefail
+          cd "$DEPLOY_PATH"
+          echo "Было:  $(git log --oneline -1)"
+          git pull --ff-only
+          echo "Стало: $(git log --oneline -1)"
+          docker compose config --quiet
+          # Сначала собираем: если сборка упадёт, старая версия сайта продолжит работать
+          docker compose --progress plain build
+          docker compose up -d
+          docker image prune -f >/dev/null
+          docker compose ps
+          REMOTE
+
+      - name: Remove SSH key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

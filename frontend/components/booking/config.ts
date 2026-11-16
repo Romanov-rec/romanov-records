@@ -1,10 +1,9 @@
 export const TEAL = "#1db8a6";
 
 export const SERVICES = [
-  { id: "instruments", label: "Запись инструментов", hasHours: true },
   { id: "vocal", label: "Запись вокала", hasHours: true },
-  { id: "mixing", label: "Сведение", hasHours: false },
-  { id: "rental", label: "Аренда Студии", hasHours: true },
+  { id: "package", label: "Пакет запись + сведение", hasHours: true },
+  { id: "mixing", label: "Сведение + мастеринг", hasHours: false },
   { id: "turnkey", label: "Трек под ключ", hasHours: false },
 ] as const;
 
