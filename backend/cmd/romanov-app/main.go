@@ -15,6 +15,7 @@ import (
 	bookings_repository "romanov/backend/internal/features/bookings/repository"
 	bookings_service "romanov/backend/internal/features/bookings/service"
 	bookings_transport "romanov/backend/internal/features/bookings/transport"
+	"romanov/backend/internal/features/integrations/botsync"
 	telegram_notifier "romanov/backend/internal/features/notifications/telegram"
 	"syscall"
 )
@@ -56,6 +57,23 @@ func main() {
 
 	bookingRepo := bookings_repository.NewPostgresRepository(pool)
 	bookingService := bookings_service.NewService(bookingRepo, tgNotifier)
+
+	// Связка с Telegram-ботом: заявки сайта попадают в «Расписание» бота,
+	// а время, занятое в боте, на сайте недоступно для записи
+	if botSync := botsync.New(os.Getenv("BOT_SYNC_URL"), os.Getenv("BOT_SYNC_SECRET")); botSync != nil {
+		bookingService.WithExternalSchedule(botSync)
+		slog.Info("bot sync enabled", "bot_url", os.Getenv("BOT_SYNC_URL"))
+		go func() {
+			all, err := bookingRepo.List(context.WithoutCancel(ctx))
+			if err != nil {
+				slog.Warn("bot sync backfill: list bookings failed", "error", err)
+				return
+			}
+			botSync.Backfill(context.WithoutCancel(ctx), all)
+		}()
+	} else {
+		slog.Info("bot sync disabled")
+	}
 	bookingTransportHTTP := bookings_transport.NewHandler(bookingService, sessionSecret)
 
 	bookingsRoutes := bookingTransportHTTP.Routes()

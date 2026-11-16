@@ -53,6 +53,8 @@ services:
       TELEGRAM_NOTIFY_CHAT_IDS: ${TELEGRAM_NOTIFY_CHAT_IDS:-}
       TELEGRAM_API_BASE_URL: ${TELEGRAM_API_BASE_URL:-}
       TELEGRAM_RELAY_SECRET: ${TELEGRAM_RELAY_SECRET:-}
+      BOT_SYNC_URL: ${BOT_SYNC_URL:-}
+      BOT_SYNC_SECRET: ${BOT_SYNC_SECRET:-}
       HTTP_PROXY: ${HTTP_PROXY:-}
       HTTPS_PROXY: ${HTTPS_PROXY:-}
       NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,romanov-postgres,romanov-backend,romanov-frontend}
