@@ -70,7 +70,7 @@ body {
   position: absolute;
   left: 0;
   right: 0;
-  top: calc(100vw * 6856 / 1920 - 220px);
+  top: calc(100vw * 5650 / 1920 - 220px);
   height: 280px;
   background: linear-gradient(to bottom, transparent, #e1fef9);
   pointer-events: none;
@@ -82,7 +82,7 @@ body {
     background-color: #052521;
   }
   .site-background::after {
-    top: calc(100vw * 5770 / 431 - 180px);
+    top: calc(100vw * 2997 / 431 - 180px);
     height: 240px;
     background: linear-gradient(to bottom, transparent, #052521);
   }
@@ -216,39 +216,6 @@ body {
     padding-top: 0 !important;
   }
 
-  .comfort-section {
-    overflow: hidden;
-    padding: calc(40 / 431 * 100vw) 0 calc(184 / 431 * 100vw);
-    background-color: #073835;
-    background-image: url("/mobile_bg/%D0%92%D1%81%D1%82%D0%B0%D0%B2%D0%BB%D0%B5%D0%BD%D0%BD%D0%BE%D0%B5%20%D0%B8%D0%B7%D0%BE%D0%B1%D1%80%D0%B0%D0%B6%D0%B5%D0%BD%D0%B8%D0%B5.png");
-    background-repeat: no-repeat;
-    background-position: center calc(-4165 / 431 * 100vw);
-    background-size: 100% auto;
-  }
-
-  .comfort-section::after {
-    content: "";
-    position: absolute;
-    left: 50%;
-    bottom: calc(38 / 431 * 100vw);
-    z-index: 0;
-    width: calc(62 / 431 * 100vw);
-    height: calc(62 / 431 * 100vw);
-    transform: translateX(-50%);
-    border-radius: calc(14 / 431 * 100vw);
-    background: rgba(4,42,39,0.96);
-    box-shadow:
-      calc(-122 / 431 * 100vw) calc(-78 / 431 * 100vw) 0 rgba(4,42,39,0.96),
-      calc(122 / 431 * 100vw) calc(-78 / 431 * 100vw) 0 rgba(4,42,39,0.96);
-  }
-
-  .comfort-title-wrap {
-    position: relative;
-    z-index: 1;
-    margin-bottom: calc(40 / 431 * 100vw);
-  }
-
-  .comfort-title-wrap .section-title,
   #tariffs .tariffs-section-title .section-title {
     padding: calc(14 / 431 * 100vw) calc(32 / 431 * 100vw) calc(8 / 431 * 100vw);
     border: calc(2 / 431 * 100vw) solid #dffff9;
@@ -257,81 +224,6 @@ body {
     font-size: calc(26 / 431 * 100vw) !important;
     line-height: 1;
     letter-spacing: 0.04em !important;
-  }
-
-  .comfort-mobile-list {
-    position: relative;
-    z-index: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: calc(28 / 431 * 100vw);
-  }
-
-  .comfort-mobile-list .comfort-card {
-    position: relative;
-    width: calc(380 / 431 * 100vw);
-    min-height: calc(230 / 431 * 100vw);
-    padding: calc(28 / 431 * 100vw) calc(30 / 431 * 100vw) calc(26 / 431 * 100vw) !important;
-    gap: calc(12 / 431 * 100vw) !important;
-    border: 0 !important;
-    border-radius: calc(20 / 431 * 100vw) !important;
-    box-shadow: 0 calc(18 / 431 * 100vw) calc(36 / 431 * 100vw) rgba(0,0,0,0.25);
-  }
-
-  .comfort-mobile-list .comfort-card-dark {
-    background: rgba(4,42,39,0.94) !important;
-    color: #dffff9;
-  }
-
-  .comfort-mobile-list .comfort-card-light {
-    background: #dffff9 !important;
-    color: #073835;
-  }
-
-  .comfort-mobile-list .comfort-card::before,
-  .comfort-mobile-list .comfort-card::after {
-    content: "";
-    position: absolute;
-    top: 50%;
-    width: calc(16 / 431 * 100vw);
-    height: calc(28 / 431 * 100vw);
-    transform: translateY(-50%);
-    background: rgba(7,56,53,0.72);
-    border-radius: 999px;
-  }
-
-  .comfort-mobile-list .comfort-card::before {
-    left: calc(-9 / 431 * 100vw);
-  }
-
-  .comfort-mobile-list .comfort-card::after {
-    right: calc(-9 / 431 * 100vw);
-  }
-
-  .comfort-mobile-list .comfort-card:nth-child(1)::after,
-  .comfort-mobile-list .comfort-card:nth-child(3)::after,
-  .comfort-mobile-list .comfort-card:nth-child(5)::after {
-    display: none;
-  }
-
-  .comfort-mobile-list .comfort-card:nth-child(2)::before,
-  .comfort-mobile-list .comfort-card:nth-child(4)::before {
-    display: none;
-  }
-
-  .comfort-mobile-list .comfort-card h3 {
-    color: inherit !important;
-    font-size: calc(20 / 431 * 100vw) !important;
-    line-height: 0.95 !important;
-    letter-spacing: 0.01em !important;
-  }
-
-  .comfort-mobile-list .comfort-card p {
-    color: inherit !important;
-    opacity: 0.78;
-    font-size: calc(13 / 431 * 100vw) !important;
-    line-height: 1.25 !important;
   }
 }
 

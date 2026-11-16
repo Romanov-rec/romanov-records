@@ -5,7 +5,7 @@ import gsap from "gsap";
 
 const IMGS = {
   entrance: "/pngMain/entrance.png",
-  studio:   "/pngMain/studio.png",
+  studio:   "/pngMain/studio.jpg",
   logoHeld: "/pngMain/logo-held.png",
   person:   "/pngMain/person.png",
   mic:      "/pngMain/mic.png",
