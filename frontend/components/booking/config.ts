@@ -76,3 +76,15 @@ export function localDateString(date: Date) {
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
+
+// Номер по мере ввода: 8… → +7…, 9… → +79…, без +7 в начале → +7…; пробелы и скобки убираем.
+// Иностранный номер с «+» в начале остаётся как есть.
+export function typePhone(value: string) {
+  const s = value.trim();
+  let d = s.replace(/\D/g, "");
+  if (!d) return s.startsWith("+") ? "+" : "";
+  if (d[0] === "8") d = "7" + d.slice(1);
+  else if (d[0] === "9") d = "7" + d;
+  else if (d[0] !== "7" && !s.startsWith("+")) d = "7" + d;
+  return "+" + d.slice(0, d[0] === "7" ? 11 : 15);
+}

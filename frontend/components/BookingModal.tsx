@@ -2,7 +2,7 @@
 import type { CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { Calendar, CalendarIcon } from "./booking/Calendar";
-import { formatRub, SERVICES, TEAL, VOCAL_RATE } from "./booking/config";
+import { formatRub, SERVICES, TEAL, typePhone, VOCAL_RATE } from "./booking/config";
 import { SuccessScreen } from "./booking/SuccessScreen";
 import { ClockIcon, TimeSlotPicker } from "./booking/TimeSlotPicker";
 import { useBookingForm } from "./booking/useBookingForm";
@@ -151,8 +151,10 @@ export default function BookingModal({
               <label style={lbl}>Номер телефона</label>
               <input
                 type="tel"
+                inputMode="tel"
+                autoComplete="tel"
                 value={phone}
-                onChange={e => setPhone(e.target.value)}
+                onChange={e => setPhone(typePhone(e.target.value))}
                 placeholder="+7 (999) 000-00-00"
                 style={input}
               />
