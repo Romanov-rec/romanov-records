@@ -64,6 +64,8 @@ export interface Booking {
   request_details:   string;
   comment:           string;
   status:            "new" | "confirmed" | "completed" | "cancelled";
+  payment_status?:   "none" | "pending" | "paid" | "expired";
+  payment_amount?:   number;
   created_at:        string;
   updated_at:        string;
 }

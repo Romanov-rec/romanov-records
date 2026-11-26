@@ -345,3 +345,15 @@ body {
 .booking-consents:disabled { opacity: .65; }
 .booking-consents:disabled input, .booking-consents:disabled label { cursor: wait; }
 .booking-consent-error { color: #fca5a5; font-size: .85rem; line-height: 1.5; margin: .5rem 0; }
+
+/* Возврат с оплаты: индикатор проверки */
+.payment-return-spinner {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #1db8a6;
+  animation: payment-return-spin 0.9s linear infinite;
+}
+@keyframes payment-return-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .payment-return-spinner { animation-duration: 2.4s; } }

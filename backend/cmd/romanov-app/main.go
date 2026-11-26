@@ -15,7 +15,9 @@ import (
 	bookings_repository "romanov/backend/internal/features/bookings/repository"
 	bookings_service "romanov/backend/internal/features/bookings/service"
 	bookings_transport "romanov/backend/internal/features/bookings/transport"
+	"romanov/backend/internal/features/integrations/botsync"
 	telegram_notifier "romanov/backend/internal/features/notifications/telegram"
+	"strings"
 	"syscall"
 )
 
@@ -56,6 +58,36 @@ func main() {
 
 	bookingRepo := bookings_repository.NewPostgresRepository(pool)
 	bookingService := bookings_service.NewService(bookingRepo, tgNotifier)
+
+	// Связка с Telegram-ботом: заявки сайта попадают в «Расписание» бота,
+	// а время, занятое в боте, на сайте недоступно для записи
+	if botSync := botsync.New(os.Getenv("BOT_SYNC_URL"), os.Getenv("BOT_SYNC_SECRET")); botSync != nil {
+		bookingService.WithExternalSchedule(botSync)
+		slog.Info("bot sync enabled", "bot_url", os.Getenv("BOT_SYNC_URL"))
+
+		// Онлайн-оплата записи через ЮKassa бота. После оплаты ЮKassa возвращает клиента на сайт.
+		siteURL := os.Getenv("SITE_PUBLIC_URL")
+		if siteURL == "" {
+			siteURL = os.Getenv("HTTP_CORS_ORIGIN")
+		}
+		if os.Getenv("SITE_PAYMENTS") != "off" && strings.HasPrefix(siteURL, "https://") {
+			bookingService.WithPayments(botSync, bookingRepo, siteURL)
+			go bookingService.WatchPayments(ctx)
+			slog.Info("online payments enabled", "return_base", siteURL)
+		} else {
+			slog.Info("online payments disabled", "site_url", siteURL)
+		}
+		go func() {
+			all, err := bookingRepo.List(context.WithoutCancel(ctx))
+			if err != nil {
+				slog.Warn("bot sync backfill: list bookings failed", "error", err)
+				return
+			}
+			botSync.Backfill(context.WithoutCancel(ctx), all)
+		}()
+	} else {
+		slog.Info("bot sync disabled")
+	}
 	bookingTransportHTTP := bookings_transport.NewHandler(bookingService, sessionSecret)
 
 	bookingsRoutes := bookingTransportHTTP.Routes()

@@ -148,7 +148,9 @@ var ruMonths = [...]string{
 func formatBookingMessage(b domain.Booking) string {
 	var sb strings.Builder
 
-	if b.ID > 0 {
+	if b.PaymentStatus == domain.PaymentPaid {
+		fmt.Fprintf(&sb, "💳 <b>Оплаченная запись #%d</b>\n<b>Оплачено онлайн: %s ₽</b>\n\n", b.ID, rubles(b.PaymentAmount))
+	} else if b.ID > 0 {
 		fmt.Fprintf(&sb, "🎙 <b>Новая заявка #%d</b>\n\n", b.ID)
 	} else {
 		sb.WriteString("🎙 <b>Новая заявка</b>\n\n")
@@ -188,3 +190,12 @@ func formatBookingMessage(b domain.Booking) string {
 var htmlEscaper = strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;")
 
 func escape(s string) string { return htmlEscaper.Replace(s) }
+
+// rubles форматирует сумму с пробелами по тысячам: 17500 → «17 500».
+func rubles(n int) string {
+	s := strconv.Itoa(n)
+	for i := len(s) - 3; i > 0; i -= 3 {
+		s = s[:i] + " " + s[i:]
+	}
+	return s
+}

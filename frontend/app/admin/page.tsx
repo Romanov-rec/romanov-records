@@ -10,6 +10,12 @@ const STATUS_ORDER: Record<string, number> = {
   cancelled: 3,
 };
 
+const PAYMENT_LABEL: Record<string, string> = {
+  pending: "Ждёт оплату",
+  paid:    "Оплачено онлайн",
+  expired: "Не оплатили",
+};
+
 const STATUS_LABEL: Record<string, string> = {
   new:       "Новая",
   confirmed: "Согласовано",
@@ -123,6 +129,13 @@ function BookingCard({ booking }: { booking: Booking }) {
           >
             {STATUS_LABEL[booking.status] ?? booking.status}
           </span>
+          {booking.payment_status && booking.payment_status !== "none" && (
+            <span style={{ fontFamily: '"BerlinType", sans-serif', fontSize: "0.78rem", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums",
+              color: booking.payment_status === "paid" ? TEAL : "rgba(255,255,255,0.45)" }}>
+              {PAYMENT_LABEL[booking.payment_status]}
+              {booking.payment_amount ? ` · ${booking.payment_amount.toLocaleString("ru-RU")} ₽` : ""}
+            </span>
+          )}
         </div>
 
         <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>

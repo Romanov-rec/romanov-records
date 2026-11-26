@@ -2,7 +2,7 @@
 import type { CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { Calendar, CalendarIcon } from "./booking/Calendar";
-import { SERVICES, TEAL } from "./booking/config";
+import { formatRub, SERVICES, TEAL, VOCAL_RATE } from "./booking/config";
 import { SuccessScreen } from "./booking/SuccessScreen";
 import { ClockIcon, TimeSlotPicker } from "./booking/TimeSlotPicker";
 import { useBookingForm } from "./booking/useBookingForm";
@@ -25,6 +25,8 @@ export default function BookingModal({
     comment,
     name,
     onlyMixingSelected,
+    payable,
+    payTotal,
     phone,
     selectedDate: selDate,
     selectedTime: selTime,
@@ -38,6 +40,7 @@ export default function BookingModal({
     setServiceHours: setHours,
     setTelegram,
     setTimeOpen,
+    setVocalEngineer,
     submit: handleSubmit,
     submitError: submitErr,
     submitting,
@@ -174,8 +177,8 @@ export default function BookingModal({
                 {SERVICES.map(svc => {
                   const st = services[svc.id];
                   return (
+                    <div key={svc.id} style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
                     <div
-                      key={svc.id}
                       onClick={() => toggleService(svc.id)}
                       style={{
                         display: "flex",
@@ -237,6 +240,42 @@ export default function BookingModal({
                           <span style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.78rem", fontFamily: '"BerlinType", sans-serif' }}>ч.</span>
                         </div>
                       )}
+                    </div>
+                    {svc.id === "vocal" && st.checked && (
+                      <div role="radiogroup" aria-label="Звукорежиссёр" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.4rem", paddingLeft: "1.6rem" }}>
+                        {([
+                          { engineer: true, title: "Со звукорежиссёром", price: VOCAL_RATE.engineer },
+                          { engineer: false, title: "Без звукорежиссёра", price: VOCAL_RATE.rent },
+                        ] as const).map(opt => {
+                          const on = st.engineer === opt.engineer;
+                          return (
+                            <button
+                              key={String(opt.engineer)}
+                              type="button"
+                              role="radio"
+                              aria-checked={on}
+                              onClick={() => setVocalEngineer(opt.engineer)}
+                              style={{
+                                textAlign: "left",
+                                background: on ? "rgba(29,184,166,0.14)" : "rgba(255,255,255,0.04)",
+                                border: `1px solid ${on ? "rgba(29,184,166,0.45)" : "rgba(255,255,255,0.1)"}`,
+                                borderRadius: 10,
+                                padding: "0.5rem 0.7rem",
+                                cursor: "pointer",
+                                color: "#fff",
+                                fontFamily: '"BerlinType", sans-serif',
+                                transition: "background 0.18s, border-color 0.18s",
+                              }}
+                            >
+                              <span style={{ display: "block", fontSize: "0.8rem" }}>{opt.title}</span>
+                              <span style={{ display: "block", fontSize: "0.75rem", color: "rgba(255,255,255,0.5)", marginTop: 2, fontVariantNumeric: "tabular-nums" }}>
+                                {formatRub(opt.price)} / час
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                     </div>
                   );
                 })}
@@ -364,8 +403,31 @@ export default function BookingModal({
                   Чтобы отправить заявку, ознакомьтесь с документами и отметьте все три галочки.
                 </p>
               )}
-              <p className="booking-consents-hint">Отправка заявки не является оплатой. По условиям оферты договор заключается при оплате.</p>
+              <p className="booking-consents-hint">
+                {payable
+                  ? "Договор заключается при оплате. Оплата картой или СБП через ЮKassa, чек придёт по SMS."
+                  : "Отправка заявки не является оплатой. По условиям оферты договор заключается при оплате."}
+              </p>
             </fieldset>
+
+            {/* К оплате */}
+            {payable && (
+              <div style={{
+                display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "1rem",
+                borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: "0.9rem",
+              }}>
+                <div style={{ fontFamily: '"BerlinType", sans-serif' }}>
+                  <div style={{ color: "#fff", fontSize: "0.9rem" }}>К оплате сейчас</div>
+                  <div style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.75rem", lineHeight: 1.4, marginTop: 2 }}>
+                    Время закрепится за вами на 30 минут, пока идёт оплата
+                    {(services.package.checked || services.mixing.checked || services.turnkey.checked) ? ". Остальное обсудим отдельно — цена зависит от сложности" : ""}
+                  </div>
+                </div>
+                <div style={{ fontFamily: '"Borsok", sans-serif', color: "#fff", fontSize: "1.25rem", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
+                  {formatRub(payTotal)}
+                </div>
+              </div>
+            )}
 
             {/* Ошибка */}
             {submitErr && (
@@ -400,7 +462,9 @@ export default function BookingModal({
                 transition: "background 0.2s",
               }}
             >
-              {submitting ? "Отправляем…" : "Отправить заявку"}
+              {payable
+                ? (submitting ? "Переходим к оплате…" : "Перейти к оплате")
+                : (submitting ? "Отправляем…" : "Отправить заявку")}
             </button>
 
           </div>
