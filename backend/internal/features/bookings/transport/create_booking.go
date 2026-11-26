@@ -30,8 +30,11 @@ func (h *BookingHTTPHandler) CreateBooking(w http.ResponseWriter, r *http.Reques
 		RequestDetails:   req.RequestDetails,
 		Comment:          req.Comment,
 	}
+	for _, item := range req.Services {
+		input.Items = append(input.Items, bookings_service.ServiceItem{ID: item.ID, Hours: item.Hours, Engineer: item.Engineer})
+	}
 
-	id, err := h.service.CreateBooking(r.Context(), input)
+	result, err := h.service.CreateBookingWithPayment(r.Context(), input)
 	if err != nil {
 		if errors.Is(err, bookings_repository.ErrBookingConflict) {
 			http.Error(w, "Выбранное время уже занято. Пожалуйста, выберите другой слот.", http.StatusConflict)
@@ -42,6 +45,8 @@ func (h *BookingHTTPHandler) CreateBooking(w http.ResponseWriter, r *http.Reques
 	}
 
 	transport_http.WriteJSON(w, http.StatusCreated, CreateBookingResponse{
-		ID: id,
+		ID:     result.ID,
+		PayURL: result.PayURL,
+		Amount: result.Amount,
 	})
 }

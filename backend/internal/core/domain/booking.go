@@ -33,6 +33,16 @@ func (s BookingStatus) CanTransitionTo(next BookingStatus) bool {
 	}
 }
 
+// PaymentStatus — онлайн-оплата записи с сайта.
+type PaymentStatus string
+
+const (
+	PaymentNone    PaymentStatus = "none"    // оплата не требовалась — обычная заявка
+	PaymentPending PaymentStatus = "pending" // клиента отправили платить, время держим
+	PaymentPaid    PaymentStatus = "paid"
+	PaymentExpired PaymentStatus = "expired" // не оплатили вовремя, время освобождено
+)
+
 type Booking struct {
 	ID               int
 	FullName         string
@@ -44,6 +54,8 @@ type Booking struct {
 	RequestDetails   string
 	Comment          string
 	Status           BookingStatus
+	PaymentStatus    PaymentStatus
+	PaymentAmount    int
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 }

@@ -12,6 +12,7 @@ type BookingHTTPHandler struct {
 	service       *bookings_service.Service
 	sessionSecret string
 	createLimiter *transport_http_middleware.IPRateLimiter
+	statusLimiter *transport_http_middleware.IPRateLimiter
 }
 
 func NewHandler(service *bookings_service.Service, sessionSecret string) *BookingHTTPHandler {
@@ -19,6 +20,7 @@ func NewHandler(service *bookings_service.Service, sessionSecret string) *Bookin
 		service:       service,
 		sessionSecret: sessionSecret,
 		createLimiter: transport_http_middleware.NewIPRateLimiter(20, time.Minute),
+		statusLimiter: transport_http_middleware.NewIPRateLimiter(60, time.Minute),
 	}
 }
 
@@ -28,6 +30,11 @@ func (h *BookingHTTPHandler) Routes() []transport_http_server.Route {
 			Method:  http.MethodPost,
 			Path:    "/bookings",
 			Handler: h.createLimiter.Middleware(http.HandlerFunc(h.CreateBooking)),
+		},
+		{
+			Method:  http.MethodGet,
+			Path:    "/bookings/{id}/payment",
+			Handler: h.statusLimiter.Middleware(http.HandlerFunc(h.GetPaymentStatus)),
 		},
 		{
 			Method:  http.MethodGet,

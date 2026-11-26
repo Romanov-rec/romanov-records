@@ -102,6 +102,8 @@ func (r *PostgresRepository) List(ctx context.Context) ([]domain.Booking, error)
 			request_details,
 			comment,
 			status,
+			payment_status,
+			payment_amount,
 			created_at,
 			updated_at
 		FROM romanov.bookings
@@ -130,6 +132,8 @@ func (r *PostgresRepository) List(ctx context.Context) ([]domain.Booking, error)
 			&booking.RequestDetails,
 			&booking.Comment,
 			&booking.Status,
+			&booking.PaymentStatus,
+			&booking.PaymentAmount,
 			&booking.CreatedAt,
 			&booking.UpdatedAt,
 		); err != nil {
@@ -233,4 +237,96 @@ func (r *PostgresRepository) UpdateStatus(ctx context.Context, id int, status st
 	}
 
 	return nil
+}
+
+// ---------- Онлайн-оплата ----------
+
+const bookingColumns = `
+	id, full_name, phone_number, telegram_username, desired_date, desired_time,
+	duration_hours, request_details, comment, status, payment_status, payment_amount,
+	created_at, updated_at`
+
+func scanBooking(row pgx.Row) (domain.Booking, error) {
+	var b domain.Booking
+	err := row.Scan(
+		&b.ID, &b.FullName, &b.PhoneNumber, &b.TelegramUsername, &b.DesiredDate, &b.DesiredTime,
+		&b.DurationHours, &b.RequestDetails, &b.Comment, &b.Status, &b.PaymentStatus, &b.PaymentAmount,
+		&b.CreatedAt, &b.UpdatedAt,
+	)
+	return b, err
+}
+
+// Get возвращает одну заявку.
+func (r *PostgresRepository) Get(ctx context.Context, id int) (domain.Booking, error) {
+	b, err := scanBooking(r.db.QueryRow(ctx, `SELECT `+bookingColumns+` FROM romanov.bookings WHERE id = $1`, id))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.Booking{}, ErrBookingNotFound
+	}
+	if err != nil {
+		return domain.Booking{}, fmt.Errorf("get booking: %w", err)
+	}
+	return b, nil
+}
+
+// StartPayment помечает заявку «ждёт оплату» с суммой, посчитанной ботом.
+func (r *PostgresRepository) StartPayment(ctx context.Context, id int, amount int) error {
+	var updated bool
+	err := r.db.QueryRow(ctx, `
+		WITH u AS (
+			UPDATE romanov.bookings
+			SET payment_status = 'pending', payment_amount = $2, updated_at = NOW()
+			WHERE id = $1
+			RETURNING id
+		)
+		SELECT EXISTS(SELECT 1 FROM u)`, id, amount).Scan(&updated)
+	if err != nil {
+		return fmt.Errorf("start payment: %w", err)
+	}
+	if !updated {
+		return ErrBookingNotFound
+	}
+	return nil
+}
+
+// ResolvePayment переводит ожидающую оплату в paid или expired.
+// Возвращает true, только если статус изменился именно этим вызовом —
+// так уведомление об оплате уходит ровно один раз, даже при параллельных проверках.
+// expired заодно отменяет заявку, чтобы время освободилось и на сайте.
+func (r *PostgresRepository) ResolvePayment(ctx context.Context, id int, status domain.PaymentStatus) (bool, error) {
+	if status != domain.PaymentPaid && status != domain.PaymentExpired {
+		return false, fmt.Errorf("resolve payment: unexpected status %q", status)
+	}
+	var changed bool
+	err := r.db.QueryRow(ctx, `
+		WITH u AS (
+			UPDATE romanov.bookings
+			SET payment_status = $2,
+			    status = CASE WHEN $2 = 'expired' THEN 'cancelled' ELSE status END,
+			    updated_at = NOW()
+			WHERE id = $1 AND payment_status = 'pending'
+			RETURNING id
+		)
+		SELECT EXISTS(SELECT 1 FROM u)`, id, string(status)).Scan(&changed)
+	if err != nil {
+		return false, fmt.Errorf("resolve payment: %w", err)
+	}
+	return changed, nil
+}
+
+// ListPendingPayments — заявки, по которым ждём оплату.
+func (r *PostgresRepository) ListPendingPayments(ctx context.Context) ([]domain.Booking, error) {
+	rows, err := r.db.Query(ctx, `SELECT `+bookingColumns+` FROM romanov.bookings WHERE payment_status = 'pending' ORDER BY id`)
+	if err != nil {
+		return nil, fmt.Errorf("list pending payments: %w", err)
+	}
+	defer rows.Close()
+	out := make([]domain.Booking, 0)
+	for rows.Next() {
+		b, err := scanBooking(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan booking: %w", err)
+		}
+		out = append(out, b)
+	}
+	return out, rows.Err()
 }

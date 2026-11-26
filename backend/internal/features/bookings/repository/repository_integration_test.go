@@ -87,3 +87,81 @@ func integrationBooking(date time.Time, hour, minute, duration int) domain.Booki
 		UpdatedAt:      now,
 	}
 }
+
+func TestPaymentLifecycle(t *testing.T) {
+	databaseURL := os.Getenv("TEST_DATABASE_URL")
+	if databaseURL == "" {
+		t.Skip("TEST_DATABASE_URL is not set")
+	}
+
+	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, databaseURL)
+	if err != nil {
+		t.Fatalf("connect test database: %v", err)
+	}
+	defer pool.Close()
+
+	testDate := time.Date(2099, time.February, 3, 0, 0, 0, 0, time.UTC)
+	if _, err := pool.Exec(ctx, "DELETE FROM romanov.bookings WHERE desired_date = $1", testDate); err != nil {
+		t.Fatalf("clean test data: %v", err)
+	}
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), "DELETE FROM romanov.bookings WHERE desired_date = $1", testDate)
+	})
+
+	repository := NewPostgresRepository(pool)
+	paidID, err := repository.Create(ctx, integrationBooking(testDate, 10, 0, 2))
+	if err != nil {
+		t.Fatalf("create booking: %v", err)
+	}
+	created, err := repository.Get(ctx, paidID)
+	if err != nil || created.PaymentStatus != domain.PaymentNone {
+		t.Fatalf("new booking = %#v, %v; want payment_status none", created, err)
+	}
+
+	if err := repository.StartPayment(ctx, paidID, 5000); err != nil {
+		t.Fatalf("start payment: %v", err)
+	}
+	pending, err := repository.ListPendingPayments(ctx)
+	if err != nil {
+		t.Fatalf("list pending: %v", err)
+	}
+	found := false
+	for _, b := range pending {
+		found = found || (b.ID == paidID && b.PaymentAmount == 5000)
+	}
+	if !found {
+		t.Fatalf("pending payments %v do not include booking %d", pending, paidID)
+	}
+
+	changed, err := repository.ResolvePayment(ctx, paidID, domain.PaymentPaid)
+	if err != nil || !changed {
+		t.Fatalf("resolve paid = %v, %v; want changed", changed, err)
+	}
+	changed, err = repository.ResolvePayment(ctx, paidID, domain.PaymentPaid)
+	if err != nil || changed {
+		t.Fatalf("second resolve = %v, %v; want no change", changed, err)
+	}
+
+	// Не оплатили — заявка отменяется, время снова можно занять
+	expiredID, err := repository.Create(ctx, integrationBooking(testDate, 14, 0, 2))
+	if err != nil {
+		t.Fatalf("create booking: %v", err)
+	}
+	if err := repository.StartPayment(ctx, expiredID, 3500); err != nil {
+		t.Fatalf("start payment: %v", err)
+	}
+	if changed, err := repository.ResolvePayment(ctx, expiredID, domain.PaymentExpired); err != nil || !changed {
+		t.Fatalf("resolve expired = %v, %v", changed, err)
+	}
+	expired, err := repository.Get(ctx, expiredID)
+	if err != nil || expired.Status != domain.BookingStatusCancelled || expired.PaymentStatus != domain.PaymentExpired {
+		t.Fatalf("expired booking = %#v, %v", expired, err)
+	}
+	if _, err := repository.Create(ctx, integrationBooking(testDate, 14, 0, 1)); err != nil {
+		t.Fatalf("slot of expired booking must be free: %v", err)
+	}
+	if _, err := repository.Get(ctx, 2147483000); !errors.Is(err, ErrBookingNotFound) {
+		t.Fatalf("get missing = %v, want ErrBookingNotFound", err)
+	}
+}

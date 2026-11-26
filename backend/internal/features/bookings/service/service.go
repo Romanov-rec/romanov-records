@@ -30,6 +30,10 @@ type Service struct {
 	validate *validator.Validate
 	notifier Notifier
 	external ExternalSchedule
+
+	payments     PaymentGateway
+	paymentStore PaymentStore
+	returnBase   string
 }
 
 func NewService(repo bookings_repository.Repository, notifier Notifier) *Service {
@@ -99,25 +103,40 @@ func (s *Service) CreateBooking(
 	ctx context.Context,
 	input CreateBookingInput,
 ) (int, error) {
+	result, err := s.CreateBookingWithPayment(ctx, input)
+	return result.ID, err
+}
+
+// CreateResult — созданная заявка и, если запись оплачивается онлайн, ссылка на оплату.
+type CreateResult struct {
+	ID     int
+	PayURL string
+	Amount int
+}
+
+func (s *Service) CreateBookingWithPayment(
+	ctx context.Context,
+	input CreateBookingInput,
+) (CreateResult, error) {
 	if err := s.validate.Struct(input); err != nil {
-		return 0, fmt.Errorf("validate CreateBooking: %w", err)
+		return CreateResult{}, fmt.Errorf("validate CreateBooking: %w", err)
 	}
 
 	desiredDate, err := time.Parse("2006-01-02", input.DesiredDate)
 	if err != nil {
-		return 0, fmt.Errorf("desiredDate parse: %w", err)
+		return CreateResult{}, fmt.Errorf("desiredDate parse: %w", err)
 	}
 
 	desiredTime, err := time.Parse("15:04", input.DesiredTime)
 	if err != nil {
-		return 0, fmt.Errorf("desiredTime parse: %w", err)
+		return CreateResult{}, fmt.Errorf("desiredTime parse: %w", err)
 	}
 	if desiredTime.Minute() != 0 && desiredTime.Minute() != 30 {
-		return 0, fmt.Errorf("desiredTime must use a 30-minute boundary")
+		return CreateResult{}, fmt.Errorf("desiredTime must use a 30-minute boundary")
 	}
 
 	if s.externalConflict(ctx, desiredDate, desiredTime, input.DurationHours) {
-		return 0, fmt.Errorf("%w: время занято в расписании студии", bookings_repository.ErrBookingConflict)
+		return CreateResult{}, fmt.Errorf("%w: время занято в расписании студии", bookings_repository.ErrBookingConflict)
 	}
 
 	now := time.Now()
@@ -131,16 +150,22 @@ func (s *Service) CreateBooking(
 		RequestDetails:   input.RequestDetails,
 		Comment:          input.Comment,
 		Status:           domain.BookingStatusNew,
+		PaymentStatus:    domain.PaymentNone,
 		CreatedAt:        now,
 		UpdatedAt:        now,
 	}
 
 	id, err := s.repo.Create(ctx, booking)
 	if err != nil {
-		return 0, err
+		return CreateResult{}, err
+	}
+	booking.ID = id
+
+	// Запись по часам оплачивается сразу: уведомление о ней придёт после оплаты
+	if pay, ok := s.startPayment(ctx, booking, input.Items); ok {
+		return CreateResult{ID: id, PayURL: pay.PayURL, Amount: pay.Amount}, nil
 	}
 
-	booking.ID = id
 	if s.external != nil {
 		go s.pushExternal(context.WithoutCancel(ctx), booking)
 	}
@@ -151,7 +176,7 @@ func (s *Service) CreateBooking(
 		go s.notifier.NotifyNewBooking(context.WithoutCancel(ctx), booking)
 	}
 
-	return id, nil
+	return CreateResult{ID: id}, nil
 }
 
 func (s *Service) ListBookings(ctx context.Context) ([]domain.Booking, error) {

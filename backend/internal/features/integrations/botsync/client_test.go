@@ -59,3 +59,45 @@ func TestPushBookingAndBusyTimes(t *testing.T) {
 		t.Fatal("PushBooking() must fail on a wrong secret")
 	}
 }
+
+func TestStartPaymentSendsItemsAndReadsPayURL(t *testing.T) {
+	t.Parallel()
+
+	var got map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Integration-Secret") != "0123456789abcdef" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/api/integrations/site/bookings/7/payment":
+			_ = json.NewDecoder(r.Body).Decode(&got)
+			_, _ = w.Write([]byte(`{"status":"pending","pay_url":"https://yoomoney.ru/x","amount":5000}`))
+		case r.Method == http.MethodGet && r.URL.Path == "/api/integrations/site/bookings/7/payment":
+			_, _ = w.Write([]byte(`{"status":"paid","amount":5000}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, "0123456789abcdef")
+	yes := true
+	b := domain.Booking{ID: 7, FullName: "Иван", PhoneNumber: "+79160000000",
+		DesiredDate: time.Date(2026, 12, 1, 0, 0, 0, 0, time.UTC), DesiredTime: time.Date(0, 1, 1, 18, 0, 0, 0, time.UTC), DurationHours: 2}
+	res, err := c.StartPayment(context.Background(), b, []PaymentItem{{ID: "vocal", Hours: 2, Engineer: &yes}}, "https://site/?payment=7")
+	if err != nil || res.PayURL != "https://yoomoney.ru/x" || res.Amount != 5000 {
+		t.Fatalf("StartPayment() = %#v, %v", res, err)
+	}
+	if got["return_url"] != "https://site/?payment=7" || got["date"] != "2026-12-01" || got["time"] != "18:00" {
+		t.Fatalf("payload = %#v", got)
+	}
+	items, _ := got["items"].([]any)
+	if len(items) != 1 || items[0].(map[string]any)["engineer"] != true {
+		t.Fatalf("items = %#v", got["items"])
+	}
+	st, err := c.PaymentStatus(context.Background(), 7)
+	if err != nil || st != "paid" {
+		t.Fatalf("PaymentStatus() = %q, %v", st, err)
+	}
+}

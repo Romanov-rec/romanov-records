@@ -136,3 +136,102 @@ func (c *Client) Backfill(ctx context.Context, bookings []domain.Booking) {
 	}
 	slog.Info("bot sync backfill done", "sent", sent, "failed", failed)
 }
+
+// ---------- Онлайн-оплата через ЮKassa бота ----------
+
+// PaymentItem — услуга, которую выбрал клиент. Цену считает бот по своим тарифам.
+type PaymentItem struct {
+	ID       string `json:"id"`
+	Hours    int    `json:"hours,omitempty"`
+	Engineer *bool  `json:"engineer,omitempty"`
+}
+
+// PaymentResult — ответ бота: куда отправить клиента и сколько он заплатит.
+type PaymentResult struct {
+	Status string `json:"status"`
+	PayURL string `json:"pay_url"`
+	Amount int    `json:"amount"`
+}
+
+type paymentRequest struct {
+	bookingPayload
+	Items     []PaymentItem `json:"items"`
+	ReturnURL string        `json:"return_url"`
+}
+
+// StartPayment ставит заявку в расписание бота и создаёт платёж ЮKassa.
+func (c *Client) StartPayment(ctx context.Context, b domain.Booking, items []PaymentItem, returnURL string) (PaymentResult, error) {
+	var out PaymentResult
+	if c == nil {
+		return out, fmt.Errorf("bot sync disabled")
+	}
+	body, err := json.Marshal(paymentRequest{
+		bookingPayload: bookingPayload{
+			ID:            b.ID,
+			FullName:      b.FullName,
+			Phone:         b.PhoneNumber,
+			Telegram:      b.TelegramUsername,
+			Date:          b.DesiredDate.Format("2006-01-02"),
+			Time:          b.DesiredTime.Format("15:04"),
+			DurationHours: max(b.DurationHours, 1),
+			Details:       b.RequestDetails,
+			Comment:       b.Comment,
+			Status:        string(b.Status),
+		},
+		Items:     items,
+		ReturnURL: returnURL,
+	})
+	if err != nil {
+		return out, fmt.Errorf("marshal payment: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		fmt.Sprintf("%s/api/integrations/site/bookings/%d/payment", c.baseURL, b.ID), bytes.NewReader(body))
+	if err != nil {
+		return out, fmt.Errorf("build request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(secretHeader, c.secret)
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return out, fmt.Errorf("post payment: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return out, fmt.Errorf("bot answered %d", resp.StatusCode)
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return out, fmt.Errorf("decode payment: %w", err)
+	}
+	if out.Status == "pending" && out.PayURL == "" {
+		return out, fmt.Errorf("bot returned no pay_url")
+	}
+	return out, nil
+}
+
+// PaymentStatus — состояние оплаты в боте: pending, paid, expired, paid_late или none.
+func (c *Client) PaymentStatus(ctx context.Context, id int) (string, error) {
+	if c == nil {
+		return "", fmt.Errorf("bot sync disabled")
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
+		fmt.Sprintf("%s/api/integrations/site/bookings/%d/payment", c.baseURL, id), nil)
+	if err != nil {
+		return "", fmt.Errorf("build request: %w", err)
+	}
+	req.Header.Set(secretHeader, c.secret)
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("get payment: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("bot answered %d", resp.StatusCode)
+	}
+	var out struct {
+		Status string `json:"status"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return "", fmt.Errorf("decode payment status: %w", err)
+	}
+	return out.Status, nil
+}

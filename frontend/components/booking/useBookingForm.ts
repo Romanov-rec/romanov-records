@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { createBooking, fetchBusyTimes } from "./api";
 import {
   createEmptyServices,
+  estimateTotal,
+  hoursOf,
   localDateString,
   SERVICES,
   type ServiceID,
@@ -31,6 +33,9 @@ export function useBookingForm(isOpen: boolean, onClose: () => void) {
   const chosenServiceIDs = SERVICES.filter((service) => services[service.id].checked)
     .map((service) => service.id);
   const onlyMixingSelected = chosenServiceIDs.length === 1 && chosenServiceIDs[0] === "mixing";
+  // Запись по часам оплачивается онлайн сразу — сумма для кнопки и подсказки
+  const payTotal = onlyMixingSelected ? 0 : estimateTotal(services);
+  const payable = payTotal > 0;
 
   const reset = useCallback(() => {
     setAcknowledgements({ privacy: false, oferta: false, payment: false });
@@ -93,6 +98,10 @@ export function useBookingForm(isOpen: boolean, onClose: () => void) {
     setServices((current) => ({ ...current, [id]: { ...current[id], hours } }));
   };
 
+  const setVocalEngineer = (engineer: boolean) => {
+    setServices((current) => ({ ...current, vocal: { ...current.vocal, engineer } }));
+  };
+
   const submit = async () => {
     if (submitting) return;
     setSubmitError("");
@@ -118,21 +127,30 @@ export function useBookingForm(isOpen: boolean, onClose: () => void) {
     if (!onlyMixing && !selectedDate) return setSubmitError("Выберите дату записи");
     if (!onlyMixing && !selectedTime) return setSubmitError("Выберите время записи");
 
+    const labelOf = (id: ServiceID, label: string) => id === "vocal"
+      ? `${label} (${services.vocal.engineer ? "со звукорежиссёром" : "без звукорежиссёра"})`
+      : label;
     const requestDetails = chosenServices
       .map((service) => service.hasHours
-        ? `${service.label} — ${services[service.id].hours} ч.`
+        ? `${labelOf(service.id, service.label)} — ${hoursOf(services[service.id].hours)} ч.`
         : service.label)
       .join(", ");
     const durationHours = Math.max(
       1,
       ...chosenServices
         .filter((service) => service.hasHours)
-        .map((service) => Number.parseInt(services[service.id].hours, 10) || 1),
+        .map((service) => hoursOf(services[service.id].hours)),
     );
+    const chosenItems = chosenServices.map((service) => ({
+      id: service.id,
+      ...(service.hasHours ? { hours: hoursOf(services[service.id].hours) } : {}),
+      ...(service.id === "vocal" ? { engineer: services.vocal.engineer } : {}),
+    }));
 
     setSubmitting(true);
+    let redirecting = false;
     try {
-      await createBooking({
+      const result = await createBooking({
         full_name: name.trim(),
         phone_number: phone,
         telegram_username: telegram,
@@ -141,14 +159,21 @@ export function useBookingForm(isOpen: boolean, onClose: () => void) {
         duration_hours: durationHours,
         request_details: requestDetails,
         comment,
+        services: chosenItems,
       });
+      if (result.pay_url) {
+        // Время закреплено за клиентом — отправляем на страницу оплаты ЮKassa
+        redirecting = true;
+        window.location.assign(result.pay_url);
+        return;
+      }
       setSuccess(true);
     } catch (error) {
       setSubmitError(error instanceof Error
         ? error.message
         : "Не удалось подключиться к серверу. Проверьте соединение.");
     } finally {
-      setSubmitting(false);
+      if (!redirecting) setSubmitting(false);
     }
   };
 
@@ -163,6 +188,8 @@ export function useBookingForm(isOpen: boolean, onClose: () => void) {
     comment,
     name,
     onlyMixingSelected,
+    payable,
+    payTotal,
     phone,
     selectedDate,
     selectedTime,
@@ -176,6 +203,7 @@ export function useBookingForm(isOpen: boolean, onClose: () => void) {
     setServiceHours,
     setTelegram,
     setTimeOpen,
+    setVocalEngineer,
     submit,
     submitError,
     submitting,

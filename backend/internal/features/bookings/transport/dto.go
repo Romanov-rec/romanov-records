@@ -14,10 +14,26 @@ type CreateBookingRequest struct {
 	DurationHours    int    `json:"duration_hours"`
 	RequestDetails   string `json:"request_details"`
 	Comment          string `json:"comment"`
+	// Выбранные услуги: по ним бот считает сумму онлайн-оплаты
+	Services []ServiceItemRequest `json:"services"`
+}
+
+type ServiceItemRequest struct {
+	ID       string `json:"id"`
+	Hours    int    `json:"hours"`
+	Engineer *bool  `json:"engineer"`
 }
 
 type CreateBookingResponse struct {
 	ID int `json:"id"`
+	// Есть, если запись оплачивается онлайн: фронтенд отправляет клиента на эту страницу ЮKassa
+	PayURL string `json:"pay_url,omitempty"`
+	Amount int    `json:"amount,omitempty"`
+}
+
+type PaymentStatusResponse struct {
+	Status domain.PaymentStatus `json:"status"`
+	Amount int                  `json:"amount"`
 }
 
 type BusyTimesResponse struct {
@@ -39,6 +55,8 @@ type BookingResponse struct {
 	RequestDetails   string               `json:"request_details"`
 	Comment          string               `json:"comment,omitempty"`
 	Status           domain.BookingStatus `json:"status"`
+	PaymentStatus    domain.PaymentStatus `json:"payment_status"`
+	PaymentAmount    int                  `json:"payment_amount"`
 	CreatedAt        time.Time            `json:"created_at"`
 	UpdatedAt        time.Time            `json:"updated_at"`
 }
@@ -55,6 +73,8 @@ func NewBookingResponse(booking domain.Booking) BookingResponse {
 		RequestDetails:   booking.RequestDetails,
 		Comment:          booking.Comment,
 		Status:           booking.Status,
+		PaymentStatus:    booking.PaymentStatus,
+		PaymentAmount:    booking.PaymentAmount,
 		CreatedAt:        booking.CreatedAt,
 		UpdatedAt:        booking.UpdatedAt,
 	}

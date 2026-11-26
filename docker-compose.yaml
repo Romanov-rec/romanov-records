@@ -55,6 +55,8 @@ services:
       TELEGRAM_RELAY_SECRET: ${TELEGRAM_RELAY_SECRET:-}
       BOT_SYNC_URL: ${BOT_SYNC_URL:-}
       BOT_SYNC_SECRET: ${BOT_SYNC_SECRET:-}
+      SITE_PUBLIC_URL: ${SITE_PUBLIC_URL:-}
+      SITE_PAYMENTS: ${SITE_PAYMENTS:-}
       HTTP_PROXY: ${HTTP_PROXY:-}
       HTTPS_PROXY: ${HTTPS_PROXY:-}
       NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,romanov-postgres,romanov-backend,romanov-frontend}
