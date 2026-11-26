@@ -1,9 +1,9 @@
 export const TEAL = "#1db8a6";
 
-// payable — запись по часам оплачивается онлайн сразу; остальное — заявка, цену обсуждаем
+// payable — запись вокала оплачивается онлайн сразу; всё, где есть сведение, — заявка: цена зависит от сложности
 export const SERVICES = [
   { id: "vocal", label: "Запись вокала", hasHours: true, payable: true },
-  { id: "package", label: "Пакет запись + сведение", hasHours: true, payable: true },
+  { id: "package", label: "Пакет запись + сведение", hasHours: true, payable: false },
   { id: "mixing", label: "Сведение + мастеринг", hasHours: false, payable: false },
   { id: "turnkey", label: "Трек под ключ", hasHours: false, payable: false },
 ] as const;
@@ -19,7 +19,6 @@ export const createEmptyServices = (): ServiceSelection =>
 
 // Цены для подсказки в форме. Итоговую сумму считает сервер по тарифам студии.
 export const VOCAL_RATE = { engineer: 2500, rent: 1750 } as const;
-export const PACKAGE_PRICE = 15000;
 
 export const hoursOf = (value: string) => Math.min(24, Math.max(1, Number.parseInt(value, 10) || 1));
 
@@ -28,7 +27,6 @@ export function estimateTotal(services: ServiceSelection) {
   if (services.vocal.checked) {
     total += (services.vocal.engineer ? VOCAL_RATE.engineer : VOCAL_RATE.rent) * hoursOf(services.vocal.hours);
   }
-  if (services.package.checked) total += PACKAGE_PRICE;
   return total;
 }
 

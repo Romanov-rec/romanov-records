@@ -420,7 +420,7 @@ export default function BookingModal({
                   <div style={{ color: "#fff", fontSize: "0.9rem" }}>К оплате сейчас</div>
                   <div style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.75rem", lineHeight: 1.4, marginTop: 2 }}>
                     Время закрепится за вами на 30 минут, пока идёт оплата
-                    {(services.mixing.checked || services.turnkey.checked) ? ". Сведение и трек под ключ обсудим отдельно" : ""}
+                    {(services.package.checked || services.mixing.checked || services.turnkey.checked) ? ". Остальное обсудим отдельно — цена зависит от сложности" : ""}
                   </div>
                 </div>
                 <div style={{ fontFamily: '"Borsok", sans-serif', color: "#fff", fontSize: "1.25rem", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>

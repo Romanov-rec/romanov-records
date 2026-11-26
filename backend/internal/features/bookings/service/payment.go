@@ -25,8 +25,9 @@ type PaymentStore interface {
 	ListPendingPayments(ctx context.Context) ([]domain.Booking, error)
 }
 
-// Онлайн оплачивается запись по часам; сведение и трек под ключ остаются заявками.
-var payableServices = map[string]bool{"vocal": true, "package": true}
+// Онлайн оплачивается запись вокала. Всё, где есть сведение (пакет, сведение, трек под ключ),
+// остаётся заявкой: цена зависит от сложности.
+var payableServices = map[string]bool{"vocal": true}
 
 var ErrPaymentsDisabled = errors.New("online payments are not configured")
 

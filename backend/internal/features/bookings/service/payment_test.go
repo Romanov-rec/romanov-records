@@ -148,7 +148,7 @@ func TestRequestOnlyServicesSkipPayment(t *testing.T) {
 	notifications := make(chan domain.Booking, 1)
 	svc := NewService(&fakeRepository{createID: 3}, channelNotifier{bookings: notifications}).WithPayments(gw, &fakeStore{}, "https://x.ru")
 	in := validCreateInput()
-	in.Items = []ServiceItem{{ID: "turnkey"}}
+	in.Items = []ServiceItem{{ID: "package", Hours: 3}, {ID: "turnkey"}}
 
 	res, err := svc.CreateBookingWithPayment(context.Background(), in)
 	if err != nil || res.PayURL != "" || gw.calls != 0 {
